@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 type headerFlags []string
@@ -27,30 +29,23 @@ func (h *headerFlags) Set(value string) error {
 type options struct {
 	url     string
 	headers headerFlags
+	timeout time.Duration
 }
 
 func main() {
 	// struct to hold the options returned
-	var opts options
-
-	flag.Var(&opts.headers, "header", "Multiple optional headers")
-
-	flag.Parse()
-
-	opts.url = flag.Arg(0)
-	if opts.url == "" {
-		log.Fatalf("URL not provided")
+	opts, err := parseArgs()
+	if err != nil {
+		log.Fatalf("Fatal error: %v", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "The provided URL is: %s\n", opts.url)
-
-	req, err := http.NewRequest("get", opts.url, nil)
+	req, err := http.NewRequest("GET", opts.url, nil)
 	if err != nil {
 		log.Fatalf("Fatal error creating request for %v", opts.url)
 	}
 
 	for _, strHeader := range opts.headers {
-		splitHeader := strings.Split(strHeader, ":")
+		splitHeader := strings.SplitN(strHeader, ":", 2)
 		key := splitHeader[0]
 		value := splitHeader[1]
 
@@ -63,7 +58,7 @@ func main() {
 		req.Header.Add(key, value)
 	}
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: opts.timeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Fatalf("Failed to GET: %v", err)
@@ -73,4 +68,25 @@ func main() {
 	fmt.Println("Response status: ", resp.Status)
 
 	io.Copy(os.Stdout, resp.Body)
+}
+
+func parseArgs() (options, error) {
+	var opts options
+
+	fs := flag.NewFlagSet("gett", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	fs.Var(&opts.headers, "header", "Multiple optional headers")
+	fs.DurationVar(&opts.timeout, "timeout", 30*time.Second, "request timeout")
+	flag.Duration("timeout", opts.timeout, "Timeout for the request")
+
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		return opts, fmt.Errorf("Failed to parse options: %v", err)
+	}
+
+	if fs.NArg() != 1 {
+		return opts, errors.New("usage: gett [flags] URL")
+	}
+	opts.url = fs.Arg(0)
+
+	return opts, nil
 }
