@@ -13,6 +13,7 @@ type options struct {
 	url     string
 	headers headerFlags
 	timeout time.Duration
+	json    bool
 }
 
 func parseArgs() (options, error) {
@@ -21,6 +22,7 @@ func parseArgs() (options, error) {
 	fs := flag.NewFlagSet("gett", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	fs.Var(&opts.headers, "header", "Multiple optional headers")
+	fs.BoolVar(&opts.json, "json", false, "Process response body as JSON")
 	fs.DurationVar(&opts.timeout, "timeout", 30*time.Second, "request timeout")
 	flag.Duration("timeout", opts.timeout, "Timeout for the request")
 

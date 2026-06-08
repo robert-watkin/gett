@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"strings"
@@ -36,7 +37,16 @@ func run(opts options) error {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("Response status: ", resp.Status)
+	contentType := resp.Header.Get("Content-Type")
+
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode >= 400 || mediaType != "application/json" {
+		return fmt.Errorf("Response body was not JSON")
+	}
 
 	io.Copy(os.Stdout, resp.Body)
 	return nil
