@@ -14,15 +14,17 @@ type options struct {
 	headers headerFlags
 	timeout time.Duration
 	json    bool
+	verbose bool
 }
 
 func parseArgs() (options, error) {
 	var opts options
 
-	fs := flag.NewFlagSet("gett", flag.ContinueOnError)
+	fs := flag.NewFlagSet("gofetch", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	fs.Var(&opts.headers, "header", "Multiple optional headers")
 	fs.BoolVar(&opts.json, "json", false, "Process response body as JSON")
+	fs.BoolVar(&opts.verbose, "verbose", false, "Output request and response headers")
 	fs.DurationVar(&opts.timeout, "timeout", 30*time.Second, "request timeout")
 	flag.Duration("timeout", opts.timeout, "Timeout for the request")
 
@@ -31,7 +33,7 @@ func parseArgs() (options, error) {
 	}
 
 	if fs.NArg() != 1 {
-		return opts, errors.New("usage: gett [flags] URL")
+		return opts, errors.New("usage: gofetch [flags] URL")
 	}
 	opts.url = fs.Arg(0)
 
@@ -45,7 +47,9 @@ func main() {
 		log.Fatalf("Fatal error: %v", err)
 	}
 
-	if err := run(opts); err != nil {
+	code, err := run(opts)
+	if err != nil {
 		log.Fatalf("Fatal error: %v", err)
 	}
+	os.Exit(code)
 }
